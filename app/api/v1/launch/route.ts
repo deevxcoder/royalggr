@@ -49,6 +49,25 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Check if operator disabled this game
+    const isGameDisabled = await prisma.operatorGameToggle.findFirst({
+      where: {
+        operatorId: auth.operator.id,
+        gameUid: selectedGame,
+        isEnabled: false,
+      },
+    });
+
+    if (isGameDisabled) {
+      return NextResponse.json(
+        {
+          status: 0,
+          error: `Game '${selectedGame}' is currently disabled in your operator portal catalog.`,
+        },
+        { status: 403 }
+      );
+    }
+
     // Check game in external_games or native
     const gameRecord = await prisma.externalGame.findFirst({
       where: { gameUid: selectedGame },

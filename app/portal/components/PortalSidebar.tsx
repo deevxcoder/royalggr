@@ -38,6 +38,7 @@ export function PortalSidebar({ operator }: { operator?: any }) {
   const operatorNav = [
     { name: "Dashboard", href: "/portal/dashboard", icon: LayoutDashboard },
     { name: "Games Catalog", href: "/portal/games", icon: Layers },
+    { name: "Game Sessions", href: "/portal/sessions", icon: Gamepad2 },
     { name: "Launchpad Sandbox", href: "/portal/launchpad", icon: Rocket },
     { name: "API Credentials", href: "/portal/apikeys", icon: KeyRound },
     { name: "Prepaid Wallet", href: "/portal/wallet", icon: Wallet },
@@ -46,6 +47,9 @@ export function PortalSidebar({ operator }: { operator?: any }) {
   ];
 
   const adminNav = [
+    { name: "Deposit Approvals", href: "/portal/admin/deposits", icon: Wallet },
+    { name: "Clients / Operators", href: "/portal/admin/operators", icon: KeyRound },
+    { name: "Global Live Sessions", href: "/portal/admin/sessions", icon: Activity },
     { name: "Providers & Aggregators", href: "/portal/admin/providers", icon: Server },
     { name: "Games Catalog (5000+)", href: "/portal/admin/games", icon: Layers },
   ];

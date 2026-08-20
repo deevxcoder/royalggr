@@ -43,6 +43,8 @@ export async function getCurrentOperator() {
   return operator;
 }
 
+export const getOperatorFromCookie = getCurrentOperator;
+
 export function generateApiKey(): { token: string; secretKey: string } {
   const tokenBytes = Array.from({ length: 16 }, () =>
     Math.floor(Math.random() * 256).toString(16).padStart(2, "0")

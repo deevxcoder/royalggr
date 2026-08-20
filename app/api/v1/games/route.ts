@@ -26,6 +26,16 @@ export async function GET(req: NextRequest) {
       provider: { isActive: true },
     };
 
+    // Check operator disabled games
+    const disabledToggles = await prisma.operatorGameToggle.findMany({
+      where: { operatorId: auth.operator.id, isEnabled: false },
+      select: { gameUid: true },
+    });
+    const disabledUids = disabledToggles.map((t) => t.gameUid);
+    if (disabledUids.length > 0) {
+      where.gameUid = { notIn: disabledUids };
+    }
+
     if (category && category !== "all") {
       where.category = category;
     }

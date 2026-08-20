@@ -13,13 +13,18 @@ import {
   Filter,
   RefreshCw,
   Server,
+  Power,
+  CheckCircle2,
+  XCircle,
 } from "lucide-react";
 
 export default function OperatorGamesCatalogPage() {
   const [operator, setOperator] = useState<any>(null);
   const [providers, setProviders] = useState<any[]>([]);
   const [games, setGames] = useState<any[]>([]);
+  const [disabledUids, setDisabledUids] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
+  const [togglingUid, setTogglingUid] = useState<string | null>(null);
 
   const [selectedBrand, setSelectedBrand] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
@@ -40,6 +45,14 @@ export default function OperatorGamesCatalogPage() {
       .then((data) => {
         if (data?.operator) setOperator(data.operator);
       });
+
+    fetch("/api/operator/game-toggle")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.disabledUids) {
+          setDisabledUids(new Set(data.disabledUids));
+        }
+      });
   }, []);
 
   const loadGamesCatalog = async () => {
@@ -49,7 +62,7 @@ export default function OperatorGamesCatalogPage() {
       if (selectedBrand) params.set("brand_id", selectedBrand);
       if (selectedCategory && selectedCategory !== "all") params.set("category", selectedCategory);
       if (searchQuery.trim()) params.set("q", searchQuery.trim());
-      params.set("limit", "100");
+      params.set("limit", "150");
 
       const res = await fetch(`/api/operator/games?${params.toString()}`);
       const data = await res.json();
@@ -73,6 +86,40 @@ export default function OperatorGamesCatalogPage() {
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     loadGamesCatalog();
+  };
+
+  const handleToggleGame = async (gameUid: string) => {
+    setTogglingUid(gameUid);
+    const isCurrentlyDisabled = disabledUids.has(gameUid);
+    const newEnabledState = isCurrentlyDisabled; // If disabled, we want to enable it
+
+    try {
+      const res = await fetch("/api/operator/game-toggle", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          gameUid,
+          isEnabled: newEnabledState,
+        }),
+      });
+
+      const json = await res.json();
+      if (json.success) {
+        setDisabledUids((prev) => {
+          const next = new Set(prev);
+          if (newEnabledState) {
+            next.delete(gameUid);
+          } else {
+            next.add(gameUid);
+          }
+          return next;
+        });
+      }
+    } catch (err) {
+      console.error("Failed to toggle game:", err);
+    } finally {
+      setTogglingUid(null);
+    }
   };
 
   return (
@@ -107,10 +154,10 @@ export default function OperatorGamesCatalogPage() {
             <div>
               <h1 className="text-2xl font-bold text-slate-100 flex items-center gap-2">
                 <Layers className="w-6 h-6 text-amber-400" />
-                Games Catalog
+                Games Catalog & Client Game Management
               </h1>
               <p className="text-xs text-slate-400 mt-1">
-                Browse all 9,000+ active games available across all integrated providers. Click <strong className="text-amber-400">"Test Launch"</strong> to test any game in Launchpad Sandbox!
+                Enable or Disable any game title for your Casino / Aggregator platform. Disabled games will not appear in your API responses or launch requests.
               </p>
             </div>
 
@@ -205,48 +252,92 @@ export default function OperatorGamesCatalogPage() {
             </div>
           ) : (
             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-              {games.map((g) => (
-                <div
-                  key={g.id}
-                  className="rounded-2xl bg-slate-900/90 border border-slate-800 overflow-hidden hover:border-amber-500/40 transition-all flex flex-col justify-between group shadow-lg"
-                >
-                  <div className="relative aspect-[4/3] bg-slate-950 overflow-hidden">
-                    {g.thumbnail ? (
-                      <img
-                        src={g.thumbnail}
-                        alt={g.name}
-                        onError={(e) => {
-                          (e.currentTarget as HTMLImageElement).src = "https://images.unsplash.com/photo-1518609878373-06d740f60d8b?auto=format&fit=crop&w=600&q=80";
-                        }}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-slate-600 font-bold text-xs">
-                        NO IMAGE
-                      </div>
-                    )}
-                    <span className="absolute top-2 left-2 px-2 py-0.5 rounded bg-slate-950/80 backdrop-blur text-[10px] font-semibold uppercase text-amber-400 border border-amber-500/20">
-                      {g.provider.name}
-                    </span>
-                  </div>
+              {games.map((g) => {
+                const isDisabled = disabledUids.has(g.gameUid);
+                const isToggling = togglingUid === g.gameUid;
 
-                  <div className="p-3 space-y-2">
-                    <h3 className="text-xs font-bold text-slate-200 truncate">{g.name}</h3>
-                    <div className="flex items-center justify-between text-[10px] text-slate-400 font-mono">
-                      <span>UID: {g.gameUid}</span>
-                      <span className="capitalize">{g.category}</span>
+                return (
+                  <div
+                    key={g.id}
+                    className={`rounded-2xl border overflow-hidden transition-all flex flex-col justify-between group shadow-lg ${
+                      isDisabled
+                        ? "bg-slate-950/80 border-slate-800/60 opacity-60"
+                        : "bg-slate-900/90 border-slate-800 hover:border-amber-500/40"
+                    }`}
+                  >
+                    <div className="relative aspect-[4/3] bg-slate-950 overflow-hidden">
+                      {g.thumbnail ? (
+                        <img
+                          src={g.thumbnail}
+                          alt={g.name}
+                          onError={(e) => {
+                            (e.currentTarget as HTMLImageElement).src =
+                              "https://images.unsplash.com/photo-1518609878373-06d740f60d8b?auto=format&fit=crop&w=600&q=80";
+                          }}
+                          className={`w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 ${
+                            isDisabled ? "grayscale" : ""
+                          }`}
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-slate-600 font-bold text-xs">
+                          NO IMAGE
+                        </div>
+                      )}
+                      <span className="absolute top-2 left-2 px-2 py-0.5 rounded bg-slate-950/80 backdrop-blur text-[10px] font-semibold uppercase text-amber-400 border border-amber-500/20">
+                        {g.provider.name}
+                      </span>
+
+                      {/* Enabled / Disabled Status Badge */}
+                      <span
+                        className={`absolute top-2 right-2 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase ${
+                          isDisabled
+                            ? "bg-rose-500/80 text-white"
+                            : "bg-emerald-500/80 text-slate-950"
+                        }`}
+                      >
+                        {isDisabled ? "Disabled" : "Live"}
+                      </span>
                     </div>
 
-                    <Link
-                      href={`/portal/launchpad?game_uid=${encodeURIComponent(g.gameUid)}&brand_id=${g.provider.brandId}`}
-                      className="w-full py-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 text-[11px] font-bold flex items-center justify-center gap-1 transition-all"
-                    >
-                      <Play className="w-3 h-3 fill-amber-400" />
-                      Test Launch
-                    </Link>
+                    <div className="p-3 space-y-2">
+                      <h3 className="text-xs font-bold text-slate-200 truncate">{g.name}</h3>
+                      <div className="flex items-center justify-between text-[10px] text-slate-400 font-mono">
+                        <span>UID: {g.gameUid}</span>
+                        <span className="capitalize">{g.category}</span>
+                      </div>
+
+                      {/* Action Buttons: Toggle and Test Launch */}
+                      <div className="space-y-1.5 pt-1">
+                        <button
+                          onClick={() => handleToggleGame(g.gameUid)}
+                          disabled={isToggling}
+                          className={`w-full py-1.5 rounded-lg text-[11px] font-bold flex items-center justify-center gap-1.5 transition-all border ${
+                            isDisabled
+                              ? "bg-slate-800 hover:bg-emerald-500/20 text-slate-300 hover:text-emerald-400 border-slate-700 hover:border-emerald-500/40"
+                              : "bg-emerald-500/10 hover:bg-rose-500/10 text-emerald-400 hover:text-rose-400 border-emerald-500/30 hover:border-rose-500/30"
+                          }`}
+                          title={isDisabled ? "Click to Enable Game" : "Click to Disable Game"}
+                        >
+                          <Power className={`w-3 h-3 ${isToggling ? "animate-spin" : ""}`} />
+                          {isDisabled ? "Enable Game" : "Enabled (Active)"}
+                        </button>
+
+                        {!isDisabled && (
+                          <Link
+                            href={`/portal/launchpad?game_uid=${encodeURIComponent(
+                              g.gameUid
+                            )}&brand_id=${g.provider.brandId}`}
+                            className="w-full py-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 text-[10px] font-bold flex items-center justify-center gap-1 transition-all"
+                          >
+                            <Play className="w-2.5 h-2.5 fill-amber-400" />
+                            Test Launch
+                          </Link>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </main>
