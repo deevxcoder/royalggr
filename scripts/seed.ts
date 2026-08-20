@@ -1,6 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
-import { INITIAL_PROVIDERS_SEED } from "../lib/seedCatalog";
+import { INITIAL_PROVIDERS_SEED } from "../lib/seedCatalog.js";
 
 const prisma = new PrismaClient();
 
@@ -71,6 +71,7 @@ async function main() {
 
   // 2. Seed External Providers and Games Catalog
   for (const provSeed of INITIAL_PROVIDERS_SEED) {
+    const isNativeRoyal = provSeed.brandId === 1;
     const provider = await prisma.externalProvider.upsert({
       where: { brandId: provSeed.brandId },
       update: {
@@ -80,7 +81,7 @@ async function main() {
         logo: provSeed.logo,
         gameCount: provSeed.games.length,
         ggrMargin: provSeed.ggrMargin,
-        isActive: true,
+        isActive: isNativeRoyal,
       },
       create: {
         brandId: provSeed.brandId,
@@ -90,11 +91,11 @@ async function main() {
         logo: provSeed.logo,
         gameCount: provSeed.games.length,
         ggrMargin: provSeed.ggrMargin,
-        isActive: true,
+        isActive: isNativeRoyal,
       },
     });
 
-    console.log(`Seeded Provider [${provider.brandId}] ${provider.name}`);
+    console.log(`Seeded Provider [${provider.brandId}] ${provider.name} (Active: ${isNativeRoyal})`);
 
     for (const g of provSeed.games) {
       await prisma.externalGame.upsert({
@@ -108,7 +109,7 @@ async function main() {
           volatility: g.volatility,
           maxMultiplier: g.maxMultiplier,
           thumbnail: g.thumbnail,
-          isActive: true,
+          isActive: isNativeRoyal,
           isFeatured: g.isFeatured || false,
         },
         create: {
@@ -121,7 +122,7 @@ async function main() {
           volatility: g.volatility,
           maxMultiplier: g.maxMultiplier,
           thumbnail: g.thumbnail,
-          isActive: true,
+          isActive: isNativeRoyal,
           isFeatured: g.isFeatured || false,
         },
       });

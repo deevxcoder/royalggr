@@ -3,6 +3,7 @@ import { authenticateApiRequest } from "@/lib/apiKeyAuth";
 import { prisma } from "@/lib/prisma";
 import { signGameSession } from "@/lib/auth";
 import { launchNexxGame } from "@/lib/nexxApi";
+import { launchRoyalStudioGame } from "@/lib/studioClient";
 import crypto from "crypto";
 
 export async function POST(req: NextRequest) {
@@ -83,13 +84,27 @@ export async function POST(req: NextRequest) {
     });
 
     let launchUrl = "";
-    const studioBaseUrl = process.env.ROYAL_STUDIO_URL || "http://localhost:3002";
 
-    if (String(selectedGame).startsWith("royal_")) {
-      // Native Royal Studio Game
-      launchUrl = `${studioBaseUrl}/play/${sessionRecord.sessionId}?token=${sessionJwt}&game=${selectedGame}&returnUrl=${encodeURIComponent(
-        return_url
-      )}`;
+    if (String(selectedGame).startsWith("royal_") || gameRecord?.provider?.type === "ROYAL_NATIVE") {
+      // Standardized REST API call to Royal Games Studio (Port 3002)
+      const provider = gameRecord?.provider;
+      const studioLaunch = await launchRoyalStudioGame({
+        apiUrl: provider?.apiUrl || undefined,
+        apiToken: provider?.apiToken || undefined,
+        apiSecret: provider?.apiSecret || undefined,
+        userId: sessionRecord.userId,
+        balance: sessionRecord.balance,
+        gameUid: selectedGame,
+        currency: sessionRecord.currency,
+        callbackUrl: callback_url || "http://localhost:3000/api/callback",
+        returnUrl: return_url,
+      });
+
+      if (studioLaunch.success && studioLaunch.launchUrl) {
+        launchUrl = studioLaunch.launchUrl;
+      } else {
+        throw new Error(studioLaunch.error || "Failed to launch game from Studio API Gateway");
+      }
     } else {
       // Aggregated External Game (e.g. JILI, Pragmatic, PG Soft, Spribe, Evolution, Hacksaw)
       const provider = gameRecord?.provider;
@@ -105,15 +120,10 @@ export async function POST(req: NextRequest) {
         returnUrl: return_url,
       });
 
-      console.log("NexxAPI Launch result for", selectedGame, "Provider:", provider?.name, ":", nexxLaunch);
       if (nexxLaunch.success && nexxLaunch.launchUrl) {
         launchUrl = nexxLaunch.launchUrl;
       } else {
-        console.warn("NexxAPI Launch fallback:", nexxLaunch.error);
-        // Fallback to local simulator studio if upstream fails or offline
-        launchUrl = `${studioBaseUrl}/play/${sessionRecord.sessionId}?token=${sessionJwt}&game=${selectedGame}&returnUrl=${encodeURIComponent(
-          return_url
-        )}`;
+        throw new Error(nexxLaunch.error || "External game launch failed");
       }
     }
 

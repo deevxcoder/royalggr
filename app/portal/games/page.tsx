@@ -215,6 +215,9 @@ export default function OperatorGamesCatalogPage() {
                       <img
                         src={g.thumbnail}
                         alt={g.name}
+                        onError={(e) => {
+                          (e.currentTarget as HTMLImageElement).src = "https://images.unsplash.com/photo-1518609878373-06d740f60d8b?auto=format&fit=crop&w=600&q=80";
+                        }}
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                       />
                     ) : (

@@ -60,7 +60,8 @@ export async function GET(req: NextRequest) {
 
     const formatImageUrl = (url?: string | null) => {
       if (!url) return null;
-      if (url.includes("nexxapi.tech")) {
+      if (url.startsWith("/api/media")) return url;
+      if (url.includes("nexxapi.tech") || url.includes("ibb.co")) {
         return `/api/media?url=${encodeURIComponent(url)}`;
       }
       return url;
